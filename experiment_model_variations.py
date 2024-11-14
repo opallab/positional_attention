@@ -47,7 +47,6 @@ def run_experiment(target, data, device, model_savepath=None, run_id=0):
     out_dim = data_dim
     embed_dim = data['embed_dim']
     num_heads = data['num_heads']
-    use_rope = data['RoPE'] if 'RoPE' in data else False
     num_layers = np.log2(n).astype(int) + 1 if 'model_num_layers' not in data else data['model_num_layers']
     mlp_hidden_dim = data['mlp_hidden_dim']
     mlp_num_layers = data['mlp_num_layers']
@@ -62,92 +61,112 @@ def run_experiment(target, data, device, model_savepath=None, run_id=0):
     val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, variable_length=variable_length)
     test_loaders = [DataLoader(test_dataset, batch_size=batch_size, shuffle=False, variable_length=variable_length) for test_dataset in test_datasets]
 
-    model_s = Transformer(in_dim=in_dim_s, embed_dim=embed_dim, out_dim=out_dim, num_heads=num_heads, num_layers=num_layers,
-                        mlp_hidden_dim=mlp_hidden_dim, mlp_num_layers=mlp_num_layers, positional=False, RoPE=use_rope, pos_dim=pos_enc_base.size(1)).to(device)
-    model_p = Transformer(in_dim=in_dim_p, embed_dim=embed_dim, out_dim=out_dim, num_heads=num_heads, num_layers=num_layers,
-                            mlp_hidden_dim=mlp_hidden_dim, mlp_num_layers=mlp_num_layers, positional=True, pos_dim=pos_enc_base.size(1)).to(device)
-    optimizer_s = torch.optim.Adam(model_s.parameters(), lr=lr, weight_decay=data["weight_decay"])
-    optimizer_p = torch.optim.Adam(model_p.parameters(), lr=lr, weight_decay=data["weight_decay"])
-    scheduler_s = ReduceLROnPlateau(optimizer_s, mode='min', patience=50, factor=0.9, min_lr=1.0e-6)
-    scheduler_p = ReduceLROnPlateau(optimizer_p, mode='min', patience=50, factor=0.9, min_lr=1.0e-6)
+    # Standard, Input X|P, Attention X
+    model_0 = Transformer(in_dim=in_dim_s, embed_dim=embed_dim, out_dim=out_dim, num_heads=num_heads, num_layers=num_layers,
+                          mlp_hidden_dim=mlp_hidden_dim, mlp_num_layers=mlp_num_layers, positional=False, hybrid=False, RoPE=False,
+                          pos_dim=pos_enc_base.size(1)).to(device)
+    # Positional, Input X|P, Attention P
+    model_1 = Transformer(in_dim=in_dim_s, embed_dim=embed_dim, out_dim=out_dim, num_heads=num_heads, num_layers=num_layers,
+                          mlp_hidden_dim=mlp_hidden_dim, mlp_num_layers=mlp_num_layers, positional=True, hybrid=False, RoPE=False,
+                          pos_dim=pos_enc_base.size(1)).to(device)
+    # Standard, Input X, Attention X
+    model_2 = Transformer(in_dim=in_dim_p, embed_dim=embed_dim, out_dim=out_dim, num_heads=num_heads, num_layers=num_layers,
+                          mlp_hidden_dim=mlp_hidden_dim, mlp_num_layers=mlp_num_layers, positional=False, hybrid=False, RoPE=False,
+                          pos_dim=pos_enc_base.size(1)).to(device)
+    # Standard, Input X, Attention X|P
+    model_3 = Transformer(in_dim=in_dim_p, embed_dim=embed_dim, out_dim=out_dim, num_heads=num_heads, num_layers=num_layers,
+                          mlp_hidden_dim=mlp_hidden_dim, mlp_num_layers=mlp_num_layers, positional=False, hybrid=True, RoPE=False,
+                          pos_dim=pos_enc_base.size(1)).to(device)
+    # Standard, Input X, Attention X + RoPE
+    model_4 = Transformer(in_dim=in_dim_p, embed_dim=embed_dim, out_dim=out_dim, num_heads=num_heads, num_layers=num_layers,
+                          mlp_hidden_dim=mlp_hidden_dim, mlp_num_layers=mlp_num_layers, positional=False, hybrid=False, RoPE=True,
+                          pos_dim=pos_enc_base.size(1)).to(device)
+    # Positional, Input X, Attention P
+    model_5 = Transformer(in_dim=in_dim_p, embed_dim=embed_dim, out_dim=out_dim, num_heads=num_heads, num_layers=num_layers,
+                          mlp_hidden_dim=mlp_hidden_dim, mlp_num_layers=mlp_num_layers, positional=True, hybrid=False, RoPE=False,
+                          pos_dim=pos_enc_base.size(1)).to(device)
+    models = [model_0, model_1, model_2, model_3, model_4, model_5]
+    optimizers = [torch.optim.Adam(model.parameters(), lr=lr, weight_decay=data["weight_decay"]) for model in models]
+    schedulers = [ReduceLROnPlateau(opt, mode='min', patience=50, factor=0.9, min_lr=1.0e-6) for opt in optimizers]
     criterion = nn.MSELoss()
 
     for epoch in range(epochs):
 
-        model_s.train()
-        model_p.train()
-        train_loss_s = 0
-        train_loss_p = 0
-        loss_s = 0
-        loss_p = 0
+        for model in models:
+            model.train()
+        train_loss = [0]*len(models)
+        loss = [0]*len(models)
 
         for (x, y) in train_loader:
             x, y = x.to(device), y.to(device)
             pos_enc = get_pe(pos_enc_base, x, num_additional_node) if variable_length else pos_enc_base
             x_app = append_positional_encoding(x, pos_enc)
 
-            optimizer_s.zero_grad()
-            out = model_s(x_app, p=pos_enc)
-            loss_s = get_loss(criterion, out, y, num_additional_node, n, target)
-            loss_s.backward()
-            optimizer_s.step()
-            train_loss_s += loss_s.item()
+            for i in range(0,2):
+                optimizers[i].zero_grad()
+                out = models[i](x_app, p=pos_enc)
+                loss[i] = get_loss(criterion, out, y, num_additional_node, n, target)
+                loss[i].backward()
+                optimizers[i].step()
+                train_loss[i] += loss[i].item()
 
-            optimizer_p.zero_grad()
-            out = model_p(x, p=pos_enc)
-            loss_p = get_loss(criterion, out, y, num_additional_node, n, target)
-            loss_p.backward()
-            optimizer_p.step()
-            train_loss_p += loss_p.item()
+            for i in range(2,6):
+                optimizers[i].zero_grad()
+                out = models[i](x, p=pos_enc)
+                loss[i] = get_loss(criterion, out, y, num_additional_node, n, target)
+                loss[i].backward()
+                optimizers[i].step()
+                train_loss[i] += loss[i].item()
 
-        scheduler_s.step(train_loss_s)
-        scheduler_p.step(train_loss_p)
+        for scheduler, l in zip(schedulers,train_loss):
+            scheduler.step(l)
 
         if epoch % 10 == 0:
             with torch.no_grad():
-                val_loss_s, test_loss_s = 0, [0]*len(test_loaders)
-                val_loss_p, test_loss_p = 0, [0]*len(test_loaders)
+                val_loss = [0]*len(models)
+                test_loss = [[0]*len(test_loaders) for _ in range(len(models))]
                 for (x, y) in val_loader:
                     x, y = x.to(device), y.to(device)
                     pos_enc = get_pe(pos_enc_base, x, num_additional_node) if variable_length else pos_enc_base
                     x_app = append_positional_encoding(x, pos_enc)
-                    out = model_s(x_app, p=pos_enc)
-                    val_loss_s += get_loss(criterion, out, y, num_additional_node, n, target).item()
-                    out = model_p(x, p=pos_enc)
-                    val_loss_p += get_loss(criterion, out, y, num_additional_node, n, target).item()
+                    for i in range(0,2):
+                        out = models[i](x_app, p=pos_enc)
+                        val_loss[i] += get_loss(criterion, out, y, num_additional_node, n, target).item()
+                    for i in range(2,6):
+                        out = models[i](x, p=pos_enc)
+                        val_loss[i] += get_loss(criterion, out, y, num_additional_node, n, target).item()
 
-                for i, test_loader in enumerate(test_loaders):
+                for j, test_loader in enumerate(test_loaders):
                     for (x, y) in test_loader:
                         x, y = x.to(device), y.to(device)
                         pos_enc = get_pe(pos_enc_base, x, num_additional_node) if variable_length else pos_enc_base
                         x_app = append_positional_encoding(x, pos_enc)
-                        out = model_s(x_app, p=pos_enc)
-                        test_loss_s[i] += get_loss(criterion, out, y, num_additional_node, n, target).item()
-                        out = model_p(x, p=pos_enc)
-                        test_loss_p[i] += get_loss(criterion, out, y, num_additional_node, n, target).item()
+                        for i in range(0,2):
+                            out = models[i](x_app, p=pos_enc)
+                            test_loss[i][j] += get_loss(criterion, out, y, num_additional_node, n, target).item()
+                        for i in range(2,6):
+                            out = models[i](x, p=pos_enc)
+                            test_loss[i][j] += get_loss(criterion, out, y, num_additional_node, n, target).item()
 
-                train_loss_s /= len(train_loader)
-                train_loss_p /= len(train_loader)
-                val_loss_s /= len(val_loader)
-                val_loss_p /= len(val_loader)
-                print(f"Epoch {epoch}, standard train/val: {train_loss_s:.4e}/{val_loss_s:.4e}, positional train/val: {train_loss_p:.4e}/{val_loss_p:.4e}/")
-                str_loss_p = "/".join([f"{loss:.4e}" for loss in test_loss_p])
-                str_loss_s = "/".join([f"{loss:.4e}" for loss in test_loss_s])
-                print(f"Test positional: {str_loss_p}")
-                print(f"Test standard: {str_loss_s}")
+                train_loss = [l/len(train_loader) for l in train_loss]
+                val_loss = [l/len(val_loader) for l in val_loss]
+                print(f"Epoch {epoch}")
+                for i in range(len(models)):
+                    print(f"M{i} train/val: {train_loss[i]:.4e}/{val_loss[i]:.4e}")
+                    str_loss = "/".join([f"{loss:.4e}" for loss in test_loss[i]])
+                    print(f"Test: {str_loss}")
 
                 if epoch == epochs-1:
-                    final_losses_s = [train_loss_s] + [val_loss_s] + test_loss_s
-                    final_losses_p = [train_loss_p] + [val_loss_p] + test_loss_p
+                    final_losses = [[train_loss[i]] + [val_loss[i]] + test_loss[i] for i in range(len(models))]
 
         if epoch % 100 == 0:
-            print("Learning rate for standard transformer: ", optimizer_s.param_groups[0]['lr'])
-            print("Learning rate for positional transformer: ", optimizer_p.param_groups[0]['lr'])
+            for i, opt in enumerate(optimizers):
+                print(f"Learning rate for M{i}: ", opt.param_groups[0]['lr'])
 
-    torch.save(model_s.state_dict(), model_savepath + f"/run{run_id}/model_s.pt")
-    torch.save(model_p.state_dict(), model_savepath + f"/run{run_id}/model_p.pt")
+    for i,model in enumerate(models):
+        torch.save(model.state_dict(), model_savepath + f"/run{run_id}/model_{i}.pt")
 
-    return final_losses_s, final_losses_p
+    return final_losses
 
 
 if __name__ == '__main__':
@@ -177,36 +196,27 @@ if __name__ == '__main__':
     experiment = 'scale_generalization'
     times = len(data['low_test'])
     variable_length = data['variable_length'] if 'variable_length' in data else False
-    use_rope = data['RoPE'] if 'RoPE' in data else False
 
     print(f"Experiment: {experiment}")
     print(f"Task: {args.task}")
     print(f"Variable length: {variable_length}")
-    print(f"Using RoPE: {use_rope}")
     n = data['n'][0]
     num_train_samples = data['num_train_samples'][0]
     low_test = data['low_test'][0] if experiment=='scale_generalization' else data['low_test'][0]
     high_test = data['high_test'][0] if experiment=='scale_generalization' else data['high_test'][0]
 
-    filename = f"/train_val_test_scale_n{n}_samples{num_train_samples}"
-    filename_s = args.savepath + filename + "_standard.txt"
-    filename_p = args.savepath + filename + "_positional.txt"
-    os.makedirs(os.path.dirname(filename_s), exist_ok=True)
-    os.makedirs(os.path.dirname(filename_p), exist_ok=True)
+    filename = args.savepath + f"/train_val_test_scale_n{n}_samples{num_train_samples}"
+    os.makedirs(os.path.dirname(filename), exist_ok=True)
 
     print(f"n: {n}, Training samples: {num_train_samples}, Test range: [{low_test}, {high_test}]")
     for run in range(data['runs']):
         print(f"Run {run+1} / {data['runs']}:")
-        final_losses_s, final_losses_p = run_experiment(args.task, data, device, model_savepath=model_savepath, run_id=run)
+        final_losses = run_experiment(args.task, data, device, model_savepath=model_savepath, run_id=run)
 
-        with open(filename_s, 'a') as f:
-            for loss in final_losses_s:
-                print(f"{loss:.10e}\t", end='', file=f)
-            print("", file=f)
-
-        with open(filename_p, 'a') as f:
-            for loss in final_losses_p:
-                print(f"{loss:.10e}\t", end='', file=f)
-            print("", file=f)
+        for i in range(len(final_losses_s)):
+            with open(filename + f"_M{i}", 'a') as f:
+                for loss in final_losses[i]:
+                    print(f"{loss:.10e}\t", end='', file=f)
+                print("", file=f)
 
     print("===============================================")

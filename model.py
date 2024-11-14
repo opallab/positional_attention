@@ -3,6 +3,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torchtune.modules import RotaryPositionalEmbeddings
 
+from utils import append_positional_encoding
+
 
 class MLP(nn.Module): 
     def __init__(self, in_dim, hidden_dim, out_dim, num_layers):
@@ -24,19 +26,26 @@ class MultiheadAttention(nn.Module):
     The following implementation of multihead attention is adapted from
     https://uvadlc-notebooks.readthedocs.io/en/latest/tutorial_notebooks/tutorial6/Transformers_and_MHAttention.html#Multi-Head-Attention
     """
-    def __init__(self, embed_dim, num_heads, positional=False, RoPE=False, pos_dim=-1):
+    def __init__(self, embed_dim, num_heads, positional=False, hybrid=False, RoPE=False, pos_dim=-1):
         super().__init__()
         assert embed_dim % num_heads == 0, "Embedding dimension must be 0 modulo number of heads."
         assert not (positional and RoPE), "Cannot have both positional encoding and relative positional encoding."
-        if positional:
+        assert not (positional and hybrid), "Cannot have both positional attention and hybrid attention."
+        if positional or hybrid:
              assert pos_dim >= 1, "Positional dimension must be positive."
         self.embed_dim = embed_dim
         self.num_heads = num_heads
         self.pos_dim = pos_dim
         self.positional = positional
+        self.hybrid = hybrid
         self.RoPE = RoPE
         self.head_dim = embed_dim // num_heads
-        self.d_k = pos_dim if positional else embed_dim
+        if positional:
+            self.d_k = pos_dim
+        elif hybrid:
+            self.d_k = embed_dim + pos_dim
+        else:
+            self.d_k = embed_dim
 
         # Stack all weight matrices 1...h together for efficiency
         self.qk_proj = nn.Linear(self.d_k, 2*self.d_k*num_heads)
@@ -56,7 +65,13 @@ class MultiheadAttention(nn.Module):
 
     def forward(self, x, p=None):
         batch_size, seq_length, _ = x.size()
-        qk = self.qk_proj(p) if self.positional else self.qk_proj(x)
+        if self.positional:
+            qk = self.qk_proj(p)
+        elif self.hybrid:
+            y = append_positional_encoding(x, p)
+            qk = self.qk_proj(y)
+        else:
+            qk = self.qk_proj(x)
         v = self.v_proj(x)
 
         # Separate Q, K, V from linear output
@@ -88,10 +103,10 @@ class MultiheadAttention(nn.Module):
         return out
 
 class TransformerLayer(nn.Module):
-    def __init__(self, embed_dim, num_heads, mlp_hidden_dim, mlp_num_layers, positional=False, RoPE=False, pos_dim=-1):
+    def __init__(self, embed_dim, num_heads, mlp_hidden_dim, mlp_num_layers, positional=False, hybrid=False, RoPE=False, pos_dim=-1):
         super().__init__()
         
-        self.attn = MultiheadAttention(embed_dim, num_heads, positional=positional, RoPE=RoPE, pos_dim=pos_dim)
+        self.attn = MultiheadAttention(embed_dim, num_heads, positional=positional, hybrid=hybrid, RoPE=RoPE, pos_dim=pos_dim)
         self.mlp = MLP(2*embed_dim, mlp_hidden_dim, embed_dim, mlp_num_layers)
 
     def forward(self, x, p=None):
@@ -102,7 +117,7 @@ class TransformerLayer(nn.Module):
     
 
 class Transformer(nn.Module):
-    def __init__(self, in_dim, embed_dim, out_dim, num_heads, num_layers, mlp_hidden_dim=128, mlp_num_layers=2, positional=False, RoPE=False, pos_dim=-1):
+    def __init__(self, in_dim, embed_dim, out_dim, num_heads, num_layers, mlp_hidden_dim=128, mlp_num_layers=2, positional=False, hybrid=False, RoPE=False, pos_dim=-1):
         super().__init__()
         
         self.encoding = nn.Linear(in_dim, embed_dim)
@@ -111,12 +126,13 @@ class Transformer(nn.Module):
         transformer_layers = []
         for _ in range(num_layers):
             transformer_layers.append(TransformerLayer(embed_dim=embed_dim,
-                                                            num_heads=num_heads,
-                                                            mlp_hidden_dim=mlp_hidden_dim,
-                                                            mlp_num_layers=mlp_num_layers,
-                                                            positional=positional,
-                                                            RoPE=RoPE,
-                                                            pos_dim=pos_dim))
+                                                       num_heads=num_heads,
+                                                       mlp_hidden_dim=mlp_hidden_dim,
+                                                       mlp_num_layers=mlp_num_layers,
+                                                       positional=positional,
+                                                       hybrid=hybrid,
+                                                       RoPE=RoPE,
+                                                       pos_dim=pos_dim))
         self.transformer_layers = nn.ModuleList(transformer_layers)
 
     def forward(self, x, p=None):
