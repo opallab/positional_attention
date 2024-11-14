@@ -9,6 +9,29 @@ def get_loss(criterion, out, y, num_additional_node, n, target):
         else:
             return criterion(out, y)
 
+def get_accuracy(out, y, num_additional_node, n, target):
+    if target == 'path':
+        raise NotImplementedError
+    elif target == 'median':
+        output, tgt = None, None
+        if num_additional_node > 0:
+            output = out[:, :-num_additional_node:2]
+            tgt = y[:, :-num_additional_node:2]
+        else:
+            output = out[:, ::2]
+            tgt = y[:, ::2]
+        return ((output == tgt).sum(dim=1) == n // 2).sum().item() / out.size(0)
+    else:
+        output, tgt = None, None
+        if num_additional_node > 0:
+            output = out[:, :-num_additional_node]
+            tgt = y[:, :-num_additional_node]
+        else:
+            output = out
+            tgt = y
+        num_equal = ((output == tgt).sum(dim=1) == n).sum().item()
+        return num_equal / out.size(0)
+
 def append_positional_encoding(x, pe):
     # Add positional encoding `pe` to input data `x`
     # Input `x` should have dimension [Batch, SeqLen, EmbedDim]

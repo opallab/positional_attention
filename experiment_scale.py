@@ -143,9 +143,10 @@ def run_experiment(target, data, device, model_savepath=None, run_id=0):
         if epoch % 100 == 0:
             print("Learning rate for standard transformer: ", optimizer_s.param_groups[0]['lr'])
             print("Learning rate for positional transformer: ", optimizer_p.param_groups[0]['lr'])
-
-    torch.save(model_s.state_dict(), model_savepath + f"/run{run_id}/model_s.pt")
-    torch.save(model_p.state_dict(), model_savepath + f"/run{run_id}/model_p.pt")
+    
+    if model_savepath is not None:
+        torch.save(model_s.state_dict(), model_savepath + f"/run{run_id}_standard.pt")
+        torch.save(model_p.state_dict(), model_savepath + f"/run{run_id}_positional.pt")
 
     return final_losses_s, final_losses_p
 
@@ -197,7 +198,7 @@ if __name__ == '__main__':
     print(f"n: {n}, Training samples: {num_train_samples}, Test range: [{low_test}, {high_test}]")
     for run in range(data['runs']):
         print(f"Run {run+1} / {data['runs']}:")
-        final_losses_s, final_losses_p = run_experiment(args.task, data, device, model_savepath=model_savepath, run_id=run)
+        final_losses_s, final_losses_p = run_experiment(args.task, data, device, model_savepath=model_savepath, run_id=run+1)
 
         with open(filename_s, 'a') as f:
             for loss in final_losses_s:
