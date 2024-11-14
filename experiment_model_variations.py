@@ -164,7 +164,7 @@ def run_experiment(target, data, device, model_savepath=None, run_id=0):
                 print(f"Learning rate for M{i}: ", opt.param_groups[0]['lr'])
 
     for i,model in enumerate(models):
-        torch.save(model.state_dict(), model_savepath + f"/run{run_id}/model_{i}.pt")
+        torch.save(model.state_dict(), model_savepath + f"/M{i}_run{run_id}.pt")
 
     return final_losses
 
@@ -213,7 +213,7 @@ if __name__ == '__main__':
         print(f"Run {run+1} / {data['runs']}:")
         final_losses = run_experiment(args.task, data, device, model_savepath=model_savepath, run_id=run)
 
-        for i in range(len(final_losses_s)):
+        for i in range(len(final_losses)):
             with open(filename + f"_M{i}", 'a') as f:
                 for loss in final_losses[i]:
                     print(f"{loss:.10e}\t", end='', file=f)
