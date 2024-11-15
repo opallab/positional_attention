@@ -10,6 +10,12 @@ def get_loss(criterion, out, y, num_additional_node, n, target):
             return criterion(out, y)
 
 def get_accuracy(out, y, num_additional_node, n, target):
+    """
+    Return the accuracy of the model output `out` given the target `y`. If `target`
+    is not 'median', the accuracy is calculated by rounding `out` to the nearest integer
+    and comparing it with `y`. If `target` is 'median', the accuracy is calculated the same 
+    way but only for odd positions (i.e. 1st, 3rd, 5th, etc.) in the sequence.
+    """
     if target == 'path':
         raise NotImplementedError
     elif target == 'median':
@@ -31,6 +37,24 @@ def get_accuracy(out, y, num_additional_node, n, target):
             tgt = y
         num_equal = ((output == tgt).sum(dim=1) == n).sum().item()
         return num_equal / out.size(0)
+
+def get_close_accuracy(out, y, num_additional_node, n, target, rtol=0.1, atol=0.1):
+    """
+    Return the accuracy of the model output `out` given the target `y` allowing a relative 
+    error of `rtol` and an absolute error of `atol`.
+    Parameters:
+        - rtol (float, default=0.01): relative tolerance
+        - atol (float, default=0.01): absolute tolerance
+    """
+    output, tgt = None, None
+    if num_additional_node > 0:
+        output = out[:, :-num_additional_node]
+        tgt = y[:, :-num_additional_node]
+    else:
+        output = out
+        tgt = y
+    num_close = (torch.isclose(output, tgt, rtol=rtol, atol=atol).sum(dim=1) == n).sum().item()
+    return num_close / out.size(0)
 
 def append_positional_encoding(x, pe):
     # Add positional encoding `pe` to input data `x`
