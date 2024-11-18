@@ -38,7 +38,7 @@ def get_accuracy(out, y, num_additional_node, n, target):
         num_equal = ((output == tgt).sum(dim=1) == n).sum().item()
         return num_equal / out.size(0)
 
-def get_close_accuracy(out, y, num_additional_node, n, target, rtol=0.1, atol=0.1):
+def get_close_accuracy(out, y, num_additional_node, n, rtol=0.1, atol=0.1):
     """
     Return the accuracy of the model output `out` given the target `y` allowing a relative 
     error of `rtol` and an absolute error of `atol`.
