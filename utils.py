@@ -18,15 +18,6 @@ def get_accuracy(out, y, num_additional_node, n, target):
     """
     if target == 'path':
         raise NotImplementedError
-    elif target == 'median':
-        output, tgt = None, None
-        if num_additional_node > 0:
-            output = out[:, :-num_additional_node:2]
-            tgt = y[:, :-num_additional_node:2]
-        else:
-            output = out[:, ::2]
-            tgt = y[:, ::2]
-        return ((output == tgt).sum(dim=1) == n // 2).sum().item() / out.size(0)
     else:
         output, tgt = None, None
         if num_additional_node > 0:
