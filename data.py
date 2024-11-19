@@ -26,13 +26,39 @@ def generate_data_basic(length, low, high, target='sum', use_integer=False, cumu
         cumulative: generate cumulative version of the problem
         num_additional_node: number of additinoal nodes added to the input, "length of the scratchpad"
     """
-    if reject_low == low and reject_high == high:
+    if reject_low is not None and reject_high is not None and reject_low <= low and reject_high >= high:
         reject_low, reject_high = None, None
         
     if target == 'minsum':
         length = 2*length
         
-    if use_integer:
+    if target == 'majority':
+        if use_integer:
+            raise Warning("Majority target is not defined for integer inputs, setting use_integer = False")
+        
+        def generate_majority(low, high):
+            alpha = low + (high - low)*torch.rand(1)
+            beta = low + (high - low)*torch.rand(1)
+            while beta == alpha:
+                beta = low + (high - low)*torch.rand(1)
+            return alpha, beta
+        
+        a, b = 0, 0
+        if reject_low is None or reject_high is None:
+            ranges = (high - low)*torch.rand(2) + low
+            low, high = ranges.min(), ranges.max()
+            a, b = generate_majority(low, high)
+        else:
+            while True:
+                low_i = low + (high - low)*torch.rand(1)
+                high_i = low + (high - low)*torch.rand(1)
+                a, b = generate_majority(low_i, high_i)
+                if not ((a >= reject_low and a <= reject_high) or (b >= reject_low and b <= reject_high)):
+                    break
+        X = torch.empty(length)
+        X[0] = a
+        X[1:] = torch.randint(2, (length-1,)).float().apply_(lambda x: a if x == 0 else b)
+    elif use_integer:
         X = torch.randint(low=low, high=high, size=(length,)).float()
     else:
         if reject_low is None or reject_high is None:
@@ -74,6 +100,13 @@ def generate_data_basic(length, low, high, target='sum', use_integer=False, cumu
             Y = torch.tensor([max_subarray(X[:i+1]) for i in range(len(X))])
         else:
             Y = torch.full((length,), max_subarray(X))
+    elif target == 'majority':
+        if cumulative:
+            Y = torch.ones(length)
+            for i in range(1, length):
+                Y[i] = 1 if (X[1:i + 1] == X[0]).sum().item() > i / 2 else -1
+        else:
+            Y = torch.full((length,), 1 if (X[1:] == X[0]).sum().item() > length / 2 else -1)
   
     if num_additional_node > 0:
         padding = torch.zeros(num_additional_node)
