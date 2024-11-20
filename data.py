@@ -1,6 +1,7 @@
 import random
 import warnings
 from collections import defaultdict
+from nlp_dataset import generate_tokenized_sample
 
 import torch
 from torch.utils.data import Dataset, Sampler, DataLoader
@@ -31,7 +32,7 @@ def generate_data_basic(length, low, high, target='sum', use_integer=False, cumu
         
     if target == 'minsum':
         length = 2*length
-        
+
     if target == 'majority':
         if use_integer:
             raise Warning("Majority target is not defined for integer inputs, setting use_integer = False")
@@ -108,6 +109,47 @@ def generate_data_basic(length, low, high, target='sum', use_integer=False, cumu
         else:
             Y = torch.full((length,), 1 if (X[1:] == X[0]).sum().item() > length / 2 else -1)
   
+    if num_additional_node > 0:
+        padding = torch.zeros(num_additional_node)
+        X = torch.cat([X, padding], dim=0)
+        Y = torch.cat([Y, padding], dim=0)
+    return X.unsqueeze(-1), Y.unsqueeze(-1)
+
+def generate_nlp_data(num_cats, low, high, target="min", num_query_cats=None, num_additional_node=0, reject_low=None, reject_high=None):
+    """
+    Input
+        num_cats: number of categories
+        low: lower bound of input number range
+        high: upper bound of input number range
+        target: target query type (min, sum, sort)
+        num_query_cats: number of categories to use in the query (only applicable for sum and min query type)
+        num_additional_node: number of additinoal nodes added to the input, "length of the scratchpad"
+    """
+    if reject_low is not None and reject_high is not None and reject_low <= low and reject_high >= high:
+        reject_low, reject_high = None, None
+    
+    if num_query_cats is None and target in ['sum', 'min']:
+        raise ValueError(f"num_query_cats must be specified for {target} query type")
+        
+    if reject_low is None or reject_high is None:
+        ranges = (high - low)*torch.rand(2) + low
+        low, high = ranges.min(), ranges.max()
+    else:
+        low_i, high_i = 0, 0
+        while True:
+            low_i = low + (high - low)*torch.rand(1)
+            high_i = low + (high - low)*torch.rand(1)
+            if low_i > high_i:
+                low_i, high_i = high_i, low_i
+            if not (low_i >= reject_low and high_i <= reject_high):
+                break
+        low, high = low_i, high_i
+    
+    
+    X, answer = generate_tokenized_sample(num_cats, target, low, high, num_query_cats)
+    Y = [answer] * len(X)
+    X, Y = torch.tensor(X), torch.tensor(Y)
+
     if num_additional_node > 0:
         padding = torch.zeros(num_additional_node)
         X = torch.cat([X, padding], dim=0)
@@ -205,6 +247,21 @@ class Dataset_Basic(Dataset):
             return self.dataset[i][j]
         else:
             return self.dataset[idx]
+        
+class Dataset_NLP(Dataset):
+    def __init__(self, num_samples, num_cats, low, high, target='sum', num_additional_node=0, num_query_cats=None, reject_low=None, reject_high=None):
+        self.dataset = []
+        self.num_samples = num_samples
+        for _ in range(num_samples):
+            sample = generate_nlp_data(num_cats=num_cats, low=low, high=high, target=target, num_query_cats=num_query_cats, num_additional_node=num_additional_node, reject_low=reject_low, reject_high=reject_high)
+            self.dataset.append(sample)
+            self.list_size = len(sample[0])
+
+    def __len__(self):
+        return self.num_samples
+
+    def __getitem__(self, idx):
+        return self.dataset[idx]
 
 class CustomBatchSampler(Sampler):
     def __init__(self, dataset, batch_size, shuffle=True):
