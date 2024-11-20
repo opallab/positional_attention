@@ -58,7 +58,7 @@ def generate_tokenized_sample(num_cats: int, query_type: str, low: float, high: 
 		"""Generate a tokenized sample for the expenses dataset."""
 		categories = []
 		for i in range(num_cats):
-			categories.append(f"Cat{i+1}")
+			categories.append(f"Cat{chr(i+1)}")
 		
 		sample = generate_sample_prompt(categories, low, high, query_type, num_query_cats=num_query_cats)
 		all_text = "".join(categories)
