@@ -23,6 +23,9 @@ def generate_sample_prompt(categories: list[str], low: float, high: float, query
 				query_type (str): type of query to generate
 				num_cats (int): number of categories to use in the query (only applicable for sum query type)
 		"""
+		if query_type == "multitask":
+				query_type = random.choice(["min", "max", "sum"])
+		
 		ranges = [random.uniform(low, high) for _ in range(2)]
 		low, high = min(ranges), max(ranges)
 		expenses = {cat: random.uniform(low, high) for cat in categories}
@@ -35,22 +38,29 @@ def generate_sample_prompt(categories: list[str], low: float, high: float, query
 		query, query_answer = None, None
 		if query_type == "sum":
 				if num_query_cats is None:
-					raise ValueError("num_query_cats must be specified for sum query type")
+						raise ValueError("num_query_cats must be specified for sum query type")
 				query_categories = random.sample(categories, num_query_cats)
-				query = f"How much did I pay for {', '.join(query_categories[:-1])} and {query_categories[-1]} combined?"
+				query = f"Find sum of categories {', '.join(query_categories[:-1])} and {query_categories[-1]}"
 				query_answer = sum(expenses[cat] for cat in query_categories)
 		elif query_type == "min":
 				if num_query_cats is None:
-					raise ValueError("num_query_cats must be specified for sum query type")
+						raise ValueError("num_query_cats must be specified for min query type")
 				query_categories = random.sample(categories, num_query_cats)
-				query = f"How much did I spend on the cheapest category between {', '.join(query_categories[:-1])} and {query_categories[-1]}?"
+				query = f"Find min of categories {', '.join(query_categories[:-1])} and {query_categories[-1]}"
 				query_answer = min([expenses[cat] for cat in query_categories])
+		elif query_type == "max":
+				if num_query_cats is None:
+						raise ValueError("num_query_cats must be specified for sum query type")
+				query_categories = random.sample(categories, num_query_cats)
+				query = f"Find max of categories {', '.join(query_categories[:-1])} and {query_categories[-1]}"
+				query_answer = max([expenses[cat] for cat in query_categories])
 		elif query_type == "sort":
 				query = f"Sort the expenses in ascending order."
 				query_answer = " ".join(str(val) for val in sorted(expenses.values()))
 
 		prompt = breakdown + [query]
-
+		print(prompt)
+		print(query_answer)
 		return {"prompt": prompt, "answer": query_answer}
 
 
@@ -58,7 +68,7 @@ def generate_tokenized_sample(num_cats: int, query_type: str, low: float, high: 
 		"""Generate a tokenized sample for the expenses dataset."""
 		categories = []
 		for i in range(num_cats):
-			categories.append(f"Cat{chr(i+1)}")
+				categories.append(f"Cat{chr(i+1)}")
 		
 		sample = generate_sample_prompt(categories, low, high, query_type, num_query_cats=num_query_cats)
 		all_text = "".join(categories)
