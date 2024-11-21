@@ -59,8 +59,6 @@ def generate_sample_prompt(categories: list[str], low: float, high: float, query
 				query_answer = " ".join(str(val) for val in sorted(expenses.values()))
 
 		prompt = breakdown + [query]
-		print(prompt)
-		print(query_answer)
 		return {"prompt": prompt, "answer": query_answer}
 
 
