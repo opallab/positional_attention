@@ -24,7 +24,7 @@ def generate_sample_prompt(categories: list[str], low: float, high: float, query
 				num_cats (int): number of categories to use in the query (only applicable for sum query type)
 		"""
 		if query_type == "multitask":
-				query_type = random.choice(["min", "max", "sum"])
+				query_type = random.choice(["min", "max"])
 		
 		ranges = [random.uniform(low, high) for _ in range(2)]
 		low, high = min(ranges), max(ranges)
