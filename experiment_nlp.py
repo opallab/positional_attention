@@ -9,7 +9,8 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 from model import Transformer
 from data import Dataset_NLP, DataLoader
-from utils import append_positional_encoding, identity_pe, get_pe, get_loss
+from utils import append_positional_encoding, identity_pe, get_pe
+from utils import get_nlp_loss as get_loss
 
 def run_experiment(target, data, device, model_savepath=None, run_id=0):
     """Run experiment with given parameters and return final losses for standard and positional transformer

@@ -9,6 +9,9 @@ def get_loss(criterion, out, y, num_additional_node, n, target):
         else:
             return criterion(out, y)
 
+def get_nlp_loss(criterion, out, y, num_additional_node, n, target):
+        return criterion(out[:, :1], y[:, :1])
+
 def get_accuracy(out, y, num_additional_node, n):
     """
     Return the accuracy of the model output `out` given the target `y`. If `target`
