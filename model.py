@@ -139,21 +139,16 @@ class Transformer(nn.Module):
 
     def forward(self, x, p=None):
         #x = self.encoding(x)
-        device = next(self.parameters()).device
         nonneg_mask = x[:, :, 0] >= 0
         neg_mask = x[:, :, 0] < 0
         x_nonneg = torch.stack([x[i, nonneg_mask[i]] for i in range(x.size(0))])
         x_neg = torch.stack([x[i, neg_mask[i]] for i in range(x.size(0))])
         emb = self.embedding(-x_neg[:,:,0].long())
         lin = self.encoding(x_nonneg)
-        x_rec = torch.empty(x.size(0), x.size(1), self.embed_dim).to(device)
+        x = torch.empty(x.size(0), x.size(1), self.embed_dim)
         for i in range(x.size(0)):
-            b_rec = torch.empty(x.size(1), self.embed_dim).to(device)
-            # Fill the positions based on the masks
-            b_rec[neg_mask[i]] = emb[i]
-            b_rec[nonneg_mask[i]] = lin[i]
-            x_rec[i] = b_rec
-        x = x_rec
+            x[i, nonneg_mask[i]] = lin[i]
+            x[i, neg_mask[i]] = emb[i]
         for layer in self.transformer_layers:
             x = layer(x, p=p)
         out = self.decoding(x)
