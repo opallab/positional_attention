@@ -5,7 +5,7 @@ import os
 def encode(l: list[any], chars: list[str]) -> list[int]:
 		"""Encode a list of strings and numbers into a tokenized list of integers."""
 		encoded = []
-		stoi = {ch: (-i) for i, ch in enumerate(chars)}
+		stoi = {ch: (-(i+1)) for i, ch in enumerate(chars)}
 		for s in l:
 				if type(s) == str:
 						encoded += [stoi[c] for c in s]

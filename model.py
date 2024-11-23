@@ -48,7 +48,8 @@ class MultiheadAttention(nn.Module):
             self.d_k = embed_dim
 
         # Stack all weight matrices 1...h together for efficiency
-        self.qk_proj = nn.Linear(self.d_k, 2*self.d_k*num_heads)
+        self.interim_dim = self.d_k
+        self.qk_proj = nn.Linear(self.d_k, 2*self.interim_dim*num_heads)
         self.v_proj = nn.Linear(embed_dim, embed_dim)
         self.o_proj = nn.Linear(embed_dim, embed_dim)
 
@@ -78,10 +79,10 @@ class MultiheadAttention(nn.Module):
         if self.positional:
             # With positional attention, Q, K do not depend on the input data,
             # therefore we do not need the batch dim for Q, K
-            qk = qk.reshape(seq_length, self.num_heads, 2*self.d_k)
+            qk = qk.reshape(seq_length, self.num_heads, 2*self.interim_dim)
             qk = qk.permute(1, 0, 2) # [Head, SeqLen, EmbedDim]
         else:
-            qk = qk.reshape(batch_size, seq_length, self.num_heads, 2*self.d_k)
+            qk = qk.reshape(batch_size, seq_length, self.num_heads, 2*self.interim_dim)
             qk = qk.permute(0, 2, 1, 3) # [Batch, Head, SeqLen, EmbedDim]
         q, k = qk.chunk(2, dim=-1)
         # If RoPE is true use rotary positional embeddings
@@ -119,9 +120,10 @@ class TransformerLayer(nn.Module):
 class Transformer(nn.Module):
     def __init__(self, in_dim, embed_dim, out_dim, num_heads, num_layers, mlp_hidden_dim=128, mlp_num_layers=2, positional=False, hybrid=False, RoPE=False, pos_dim=-1):
         super().__init__()
-        
-        self.encoding = nn.Linear(in_dim, embed_dim)
+        self.embedding = nn.Embedding(30, embed_dim) # trash code
+        self.encoding = nn.Linear(in_dim, embed_dim) # trash code
         self.decoding = nn.Linear(embed_dim, out_dim)
+        self.embed_dim = embed_dim
         
         transformer_layers = []
         for _ in range(num_layers):
@@ -136,7 +138,21 @@ class Transformer(nn.Module):
         self.transformer_layers = nn.ModuleList(transformer_layers)
 
     def forward(self, x, p=None):
-        x = self.encoding(x)
+        #x = self.encoding(x)
+        nonneg_mask = x[:, :, 0] >= 0
+        neg_mask = x[:, :, 0] < 0
+        x_nonneg = torch.stack([x[i, nonneg_mask[i]] for i in range(x.size(0))])
+        x_neg = torch.stack([x[i, neg_mask[i]] for i in range(x.size(0))])
+        emb = self.embedding(-x_neg[:,:,0].long())
+        lin = self.encoding(x_nonneg)
+        x_rec = torch.empty(x.size(0), x.size(1), self.embed_dim)
+        for i in range(x.size(0)):
+            b_rec = torch.empty(x.size(1), self.embed_dim)
+            # Fill the positions based on the masks
+            b_rec[neg_mask[i]] = emb[i]
+            b_rec[nonneg_mask[i]] = lin[i]
+            x_rec[i] = b_rec
+        x = x_rec
         for layer in self.transformer_layers:
             x = layer(x, p=p)
         out = self.decoding(x)
