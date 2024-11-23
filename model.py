@@ -120,7 +120,7 @@ class TransformerLayer(nn.Module):
 class Transformer(nn.Module):
     def __init__(self, in_dim, embed_dim, out_dim, num_heads, num_layers, mlp_hidden_dim=128, mlp_num_layers=2, positional=False, hybrid=False, RoPE=False, pos_dim=-1):
         super().__init__()
-        self.embedding = nn.Embedding(30, embed_dim) # trash code
+        self.embedding = nn.Embedding(60, embed_dim) # trash code
         self.encoding = nn.Linear(in_dim, embed_dim) # trash code
         self.decoding = nn.Linear(embed_dim, out_dim)
         self.embed_dim = embed_dim
@@ -139,15 +139,16 @@ class Transformer(nn.Module):
 
     def forward(self, x, p=None):
         #x = self.encoding(x)
+        device = next(self.parameters()).device
         nonneg_mask = x[:, :, 0] >= 0
         neg_mask = x[:, :, 0] < 0
         x_nonneg = torch.stack([x[i, nonneg_mask[i]] for i in range(x.size(0))])
         x_neg = torch.stack([x[i, neg_mask[i]] for i in range(x.size(0))])
         emb = self.embedding(-x_neg[:,:,0].long())
         lin = self.encoding(x_nonneg)
-        x_rec = torch.empty(x.size(0), x.size(1), self.embed_dim)
+        x_rec = torch.empty(x.size(0), x.size(1), self.embed_dim).to(device)
         for i in range(x.size(0)):
-            b_rec = torch.empty(x.size(1), self.embed_dim)
+            b_rec = torch.empty(x.size(1), self.embed_dim).to(device)
             # Fill the positions based on the masks
             b_rec[neg_mask[i]] = emb[i]
             b_rec[nonneg_mask[i]] = lin[i]
