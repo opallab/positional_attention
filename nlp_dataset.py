@@ -2,7 +2,13 @@ import json
 import random
 import os
 
-def encode(l: list[any], chars: list[str]) -> list[int]:
+all_text = "".join([f"Cat{chr(i+1)}" for i in range(1, 40)])
+all_text += "Find sum of categories, and"
+all_text += "Find min of categories, and"
+all_text += "Find max of categories, and"
+chars = sorted(list(set(all_text)))
+
+def encode(l: list[any]) -> list[int]:
 		"""Encode a list of strings and numbers into a tokenized list of integers."""
 		encoded = []
 		stoi = {ch: (-(i+1)) for i, ch in enumerate(chars)}
@@ -62,15 +68,18 @@ def generate_sample_prompt(categories: list[str], low: float, high: float, query
 		return {"prompt": prompt, "answer": query_answer}
 
 
-def generate_tokenized_sample(num_cats: int, query_type: str, low: float, high: float, num_query_cats = None) -> dict:
+def generate_tokenized_sample(num_cats: int, query_type: str, low: float, high: float, num_query_cats = None, train: bool = True) -> dict:
 		"""Generate a tokenized sample for the expenses dataset."""
+		if train:
+			cat_nums = random.sample(list(range(1, 21)), num_cats)
+		else:
+			cat_nums = random.sample(list(range(21, 41)), num_cats)
+		cat_nums = sorted(cat_nums)
+
 		categories = []
-		for i in range(num_cats):
+		for i in cat_nums:
 				categories.append(f"Cat{chr(i+1)}")
 		
 		sample = generate_sample_prompt(categories, low, high, query_type, num_query_cats=num_query_cats)
-		all_text = "".join(categories)
-		all_text += sample["prompt"][-1]
-		chars = sorted(list(set(all_text)))
-		return encode(sample["prompt"], chars), sample["answer"]
+		return encode(sample["prompt"]), sample["answer"]
 
