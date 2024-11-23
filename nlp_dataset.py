@@ -2,7 +2,7 @@ import json
 import random
 import os
 
-all_text = "".join([f"Cat{chr(i+1)}" for i in range(1, 40)])
+all_text = "".join([f"Cat{chr(i+1)}" for i in range(1, 41)])
 all_text += "Find sum of categories, and"
 all_text += "Find min of categories, and"
 all_text += "Find max of categories, and"
