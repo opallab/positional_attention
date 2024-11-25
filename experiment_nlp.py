@@ -62,8 +62,8 @@ def run_experiment(target, data, device, model_savepath=None, run_id=0):
                             mlp_hidden_dim=mlp_hidden_dim, mlp_num_layers=mlp_num_layers, positional=True, pos_dim=pos_enc_base.size(1)).to(device)
     optimizer_s = torch.optim.Adam(model_s.parameters(), lr=lr, weight_decay=data["weight_decay"])
     optimizer_p = torch.optim.Adam(model_p.parameters(), lr=lr, weight_decay=data["weight_decay"])
-    scheduler_s = ReduceLROnPlateau(optimizer_s, mode='min', patience=50, factor=0.9, min_lr=1.0e-6)
-    scheduler_p = ReduceLROnPlateau(optimizer_p, mode='min', patience=50, factor=0.9, min_lr=1.0e-6)
+    scheduler_s = ReduceLROnPlateau(optimizer_s, mode='min', patience=10, factor=0.9, min_lr=1.0e-6)
+    scheduler_p = ReduceLROnPlateau(optimizer_p, mode='min', patience=10, factor=0.9, min_lr=1.0e-6)
     criterion = nn.MSELoss()
 
     for epoch in range(epochs):

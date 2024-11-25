@@ -145,7 +145,7 @@ def generate_nlp_data(num_cats, low, high, target="min", num_query_cats=None, nu
                 break
         low, high = low_i, high_i
     
-    is_train = True if reject_low is None else False # bad bad bad...
+    is_train = True if reject_low is None else False # quick fix to determine if the data is for training or testing
     X, answer = generate_tokenized_sample(num_cats, target, low, high, num_query_cats, train=is_train)
     Y = [answer] * len(X)
     X, Y = torch.tensor(X), torch.tensor(Y)
