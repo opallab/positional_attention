@@ -7,7 +7,7 @@ import torch
 import torch.nn as nn
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
-from model import Transformer
+from model_nlp import Transformer
 from data import Dataset_NLP, DataLoader
 from utils import append_positional_encoding, identity_pe, get_pe
 from utils import get_nlp_loss as get_loss
