@@ -1,6 +1,7 @@
 import argparse
 import json
 import os
+import warnings
 
 import numpy as np
 import torch
@@ -9,7 +10,7 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 from model import Transformer
 from data import Dataset_Basic, DataLoader
-from utils import append_positional_encoding, identity_pe, get_pe, get_loss
+from utils import append_positional_encoding, identity_pe, binary_pe, sinusoidal_pe, get_pe, get_loss
 
 def run_experiment(target, data, device, model_savepath=None, run_id=0):
     """Run experiment with given parameters and return final losses for standard and positional transformer
@@ -31,11 +32,22 @@ def run_experiment(target, data, device, model_savepath=None, run_id=0):
     cumulative = data['cumulative']
     use_integer = data['use_integer']
     variable_length = data['variable_length'] if 'variable_length' in data else False
+    pos_enc_type = data['pos_enc_type'] if 'pos_enc_type' in data else 'identity'
+
+    if pos_enc_type == 'identity':
+        pos_enc_gen = identity_pe
+    elif pos_enc_type == 'sinusoidal':
+        pos_enc_gen = lambda x: sinusoidal_pe(x, dim=min(n//2, 2))
+    elif pos_enc_type == 'binary':
+        pos_enc_gen = binary_pe
+    else:
+        pos_enc_gen = identity_pe
+        warnings.warn(f"Unknown positional encoding type: {pos_enc_type}. Using identity positional encoding.")
 
     if target == 'minsum':
-        pos_enc_base = identity_pe(2*n+num_additional_node).to(device)
+        pos_enc_base = pos_enc_gen(2*n+num_additional_node).to(device)
     else:
-        pos_enc_base = identity_pe(n+num_additional_node).to(device)
+        pos_enc_base = pos_enc_gen(n+num_additional_node).to(device)
 
     if target == 'path':
         data_dim = n

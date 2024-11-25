@@ -64,3 +64,19 @@ def get_pe(base_pe, x, num_additional_node):
     if num_additional_node > 0:
         pos_enc = torch.cat([pos_enc,base_pe[-num_additional_node:]], dim=0)
     return pos_enc
+
+def binary_pe(n):
+    bits = torch.ceil(torch.log2(torch.tensor(n))).int()
+    pe = torch.zeros(n, bits)
+    for i in range(n):
+        for j in range(bits):
+            pe[i, j] = (i >> j) & 1
+    return 2*pe - 1
+
+def sinusoidal_pe(n, dim):
+    pe = torch.zeros(n, dim)
+    position = torch.arange(0, n).unsqueeze(1)
+    div_term = torch.exp(torch.arange(0, dim, 2) * -(torch.log(torch.tensor(10000.0)) / dim))
+    pe[:, 0::2] = torch.sin(position.float() * div_term)
+    pe[:, 1::2] = torch.cos(position.float() * div_term)
+    return pe
