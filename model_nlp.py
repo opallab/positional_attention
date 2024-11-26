@@ -120,7 +120,7 @@ class TransformerLayer(nn.Module):
 class Transformer(nn.Module):
     def __init__(self, in_dim, embed_dim, out_dim, num_heads, num_layers, mlp_hidden_dim=128, mlp_num_layers=2, positional=False, hybrid=False, RoPE=False, pos_dim=-1):
         super().__init__()
-        self.embedding = nn.Embedding(60, embed_dim)
+        self.embedding = nn.Embedding(65, embed_dim)
         self.encoding = nn.Linear(in_dim, embed_dim)
         self.decoding = nn.Linear(embed_dim, out_dim)
         self.embed_dim = embed_dim
