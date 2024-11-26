@@ -6,6 +6,7 @@ all_text = "".join([f"Cat{chr(i+1)}" for i in range(1, 41)])
 all_text += "Find sum of categories, and"
 all_text += "Find min of categories, and"
 all_text += "Find max of categories, and"
+all_text += "Cat-+_"
 chars = sorted(list(set(all_text)))
 
 def encode(l: list[any]) -> list[int]:
@@ -64,7 +65,14 @@ def generate_sample_prompt(categories: list[str], low: float, high: float, query
 				query = f"Sort the expenses in ascending order."
 				query_answer = " ".join(str(val) for val in sorted(expenses.values()))
 
-		prompt = breakdown + [query]
+		confusing_cats = ["Cat" + random.choice(["+","-","_"]) + s[3:] for s in random.sample(categories, 2)]
+		positions = random.sample(range(len(breakdown) + len(confusing_cats)), len(confusing_cats))
+		it1 = iter(breakdown)
+		it2 = iter(confusing_cats)
+		merged = [
+			next(it2) if i in positions else next(it1) for i in range(len(breakdown) + len(confusing_cats))
+		]
+		prompt = merged + [query]
 		return {"prompt": prompt, "answer": query_answer}
 
 
