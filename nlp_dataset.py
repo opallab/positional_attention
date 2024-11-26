@@ -77,8 +77,7 @@ def generate_sample_prompt(categories: list[str], low: float, high: float, query
 			else:
 				merged.append(breakdown[j])
 				j += 1
-	
-		print(merged)
+
 		prompt = merged + [query]
 		return {"prompt": prompt, "answer": query_answer}
 
