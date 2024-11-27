@@ -2,22 +2,23 @@ import json
 import random
 import os
 
-all_text = "".join([f"Cat{chr(i+1)}" for i in range(1, 41)])
+all_text = "".join([f"Cat{chr(500+i+1)}" for i in range(1, 41)])
 all_text += "Find sum of categories, and"
 all_text += "Find min of categories, and"
 all_text += "Find max of categories, and"
 all_text += "Cat-+_*"
+all_text += "0123456789."
 chars = sorted(list(set(all_text)))
 
 def encode(l: list[any]) -> list[int]:
 		"""Encode a list of strings and numbers into a tokenized list of integers."""
 		encoded = []
-		stoi = {ch: (-(i+1)) for i, ch in enumerate(chars)}
+		stoi = {ch: i for i, ch in enumerate(chars)}
 		for s in l:
 				if type(s) == str:
 						encoded += [stoi[c] for c in s]
 				else:
-						encoded.append(s)
+						encoded += [stoi[c] for c in format(s, ".2f")]
 		return encoded
 
 def generate_sample_prompt(categories: list[str], low: float, high: float, query_type: str, num_query_cats = None, train = False) -> dict:
@@ -34,8 +35,8 @@ def generate_sample_prompt(categories: list[str], low: float, high: float, query
 				query_type = random.choice(["min", "max"])
 		
 		ranges = [random.uniform(low, high) for _ in range(2)]
-		low, high = min(ranges), max(ranges)
-		expenses = {cat: random.uniform(low, high) for cat in categories}
+		low, high = float(min(ranges)), float(max(ranges))
+		expenses = {cat: round(random.uniform(low, high), 2) for cat in categories}
 
 		breakdown = []
 		for cat, amount in expenses.items():
@@ -92,7 +93,7 @@ def generate_tokenized_sample(num_cats: int, query_type: str, low: float, high: 
 
 		categories = []
 		for i in cat_nums:
-				categories.append(f"Cat{chr(i+1)}")
+				categories.append(f"Cat{chr(500+i+1)}")
 		
 		sample = generate_sample_prompt(categories, low, high, query_type, num_query_cats=num_query_cats, train=train)
 		return encode(sample["prompt"]), sample["answer"]
