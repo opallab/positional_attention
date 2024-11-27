@@ -18,7 +18,7 @@ def encode(l: list[any]) -> list[int]:
 				if type(s) == str:
 						encoded += [stoi[c] for c in s]
 				else:
-						encoded += [stoi[c] for c in format(s, ".2f")]
+						encoded += [stoi[c] for c in format(s, "05.2f")] ## dd.dd format
 		return encoded
 
 def generate_sample_prompt(categories: list[str], low: float, high: float, query_type: str, num_query_cats = None, train = False) -> dict:
