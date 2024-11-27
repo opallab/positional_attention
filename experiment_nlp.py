@@ -77,10 +77,10 @@ def run_experiment(target, data, device, model_savepath=None, run_id=0):
 
         for (x, y) in train_loader:
             x, y = x.to(device), y.to(device)
-            x_app = append_positional_encoding(x, pos_enc_base)
+            #x_app = append_positional_encoding(x, pos_enc_base)
 
             optimizer_s.zero_grad()
-            out = model_s(x_app, p=pos_enc_base)
+            out = model_s(x, p=pos_enc_base)
             loss_s = get_loss(criterion, out, y, num_additional_node, n, target)
             loss_s.backward()
             optimizer_s.step()
@@ -102,8 +102,8 @@ def run_experiment(target, data, device, model_savepath=None, run_id=0):
                 val_loss_p, test_loss_p = 0, 0
                 for (x, y) in val_loader:
                     x, y = x.to(device), y.to(device)
-                    x_app = append_positional_encoding(x, pos_enc_base)
-                    out = model_s(x_app, p=pos_enc_base)
+                    #x_app = append_positional_encoding(x, pos_enc_base)
+                    out = model_s(x, p=pos_enc_base)
                     val_loss_s += get_loss(criterion, out, y, num_additional_node, n, target).item()
                     out = model_p(x, p=pos_enc_base)
                     val_loss_p += get_loss(criterion, out, y, num_additional_node, n, target).item()
@@ -111,8 +111,8 @@ def run_experiment(target, data, device, model_savepath=None, run_id=0):
                 
                 for (x, y) in test_loader:
                     x, y = x.to(device), y.to(device)
-                    x_app = append_positional_encoding(x, pos_enc_base)
-                    out = model_s(x_app, p=pos_enc_base)
+                    #x_app = append_positional_encoding(x, pos_enc_base)
+                    out = model_s(x, p=pos_enc_base)
                     test_loss_s += get_loss(criterion, out, y, num_additional_node, n, target).item()
                     out = model_p(x, p=pos_enc_base)
                     test_loss_p += get_loss(criterion, out, y, num_additional_node, n, target).item()

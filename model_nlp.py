@@ -120,9 +120,11 @@ class TransformerLayer(nn.Module):
 class Transformer(nn.Module):
     def __init__(self, in_dim, embed_dim, out_dim, num_heads, num_layers, mlp_hidden_dim=128, mlp_num_layers=2, positional=False, hybrid=False, RoPE=False, pos_dim=-1):
         super().__init__()
-        self.embedding = nn.Embedding(80, embed_dim)
+        self.wte = nn.Embedding(150, embed_dim)
+        self.wpe = nn.Embedding(150, embed_dim)
         self.decoding = nn.Linear(embed_dim, out_dim)
         self.embed_dim = embed_dim
+        self.positional = positional
         
         transformer_layers = []
         for _ in range(num_layers):
@@ -137,7 +139,17 @@ class Transformer(nn.Module):
         self.transformer_layers = nn.ModuleList(transformer_layers)
 
     def forward(self, x, p=None):
-        x = self.embedding(x.long()[:, :,0])
+        device = x.device
+        x = x.squeeze(-1)
+        b, t = x.size()
+        pos = torch.arange(0, t, dtype=torch.long, device=device) # shape (t)
+        # forward the GPT model itself
+        tok_emb = self.wte(x) # token embeddings of shape (b, t, n_embd)
+        pos_emb = self.wpe(pos) # position embeddings of shape (t, n_embd)
+        if self.positional:
+            x = tok_emb
+        else:
+            x = tok_emb + pos_emb
         for layer in self.transformer_layers:
             x = layer(x, p=p)
         out = self.decoding(x)
