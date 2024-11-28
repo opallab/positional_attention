@@ -98,3 +98,17 @@ def generate_tokenized_sample(num_cats: int, query_type: str, low: float, high: 
 		sample = generate_sample_prompt(categories, low, high, query_type, num_query_cats=num_query_cats, train=train)
 		return encode(sample["prompt"]), sample["answer"]
 
+def generate_sample(num_cats: int, query_type: str, low: float, high: float, num_query_cats = None, train: bool = True) -> dict:
+		"""Generate a tokenized sample for the expenses dataset."""
+		if train:
+			cat_nums = random.sample(list(range(1, 21)), num_cats)
+		else:
+			cat_nums = random.sample(list(range(21, 41)), num_cats)
+		cat_nums = sorted(cat_nums)
+
+		categories = []
+		for i in cat_nums:
+				categories.append(f"Cat{chr(500+i+1)}")
+		
+		sample = generate_sample_prompt(categories, low, high, query_type, num_query_cats=num_query_cats, train=train)
+		return sample["prompt"], sample["answer"]

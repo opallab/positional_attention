@@ -140,7 +140,7 @@ class Transformer(nn.Module):
 
     def forward(self, x, p=None):
         device = x.device
-        x = x.squeeze(-1)
+        x = x.squeeze(-1).long()
         b, t = x.size()
         pos = torch.arange(0, t, dtype=torch.long, device=device) # shape (t)
         # forward the GPT model itself
