@@ -118,9 +118,12 @@ class TransformerLayer(nn.Module):
     
 
 class Transformer(nn.Module):
-    def __init__(self, in_dim, embed_dim, out_dim, num_heads, num_layers, mlp_hidden_dim=128, mlp_num_layers=2, positional=False, hybrid=False, RoPE=False, pos_dim=-1):
+    def __init__(self, in_dim, embed_dim, out_dim, num_heads, num_layers, num_cats, mlp_hidden_dim=128, mlp_num_layers=2, positional=False, hybrid=False, RoPE=False, pos_dim=-1):
         super().__init__()
-        self.embedding = nn.Embedding(65, embed_dim)
+        self.positional = positional
+        self.num_nums = num_cats + 1 # assumes 1 scrtachpad node
+        self.wte = nn.Embedding(150, embed_dim)
+        self.wpe = nn.Embedding(150, embed_dim)
         self.encoding = nn.Linear(in_dim, embed_dim)
         self.decoding = nn.Linear(embed_dim, out_dim)
         self.embed_dim = embed_dim
@@ -139,16 +142,17 @@ class Transformer(nn.Module):
 
     def forward(self, x, p=None):
         device = next(self.parameters()).device
-        nonneg_mask = (x[:, :, 0] >= 0).to(device)
-        neg_mask = (x[:, :, 0] < 0).to(device)
-        x_nonneg = torch.stack([x[i, nonneg_mask[i]] for i in range(x.size(0))]).to(device)
-        x_neg = torch.stack([x[i, neg_mask[i]] for i in range(x.size(0))]).to(device)
-        emb = self.embedding(-x_neg[:,:,0].long()).to(device)
-        lin = self.encoding(x_nonneg).to(device)
-        x = torch.empty(x.size(0), x.size(1), self.embed_dim).to(device)
-        for i in range(x.size(0)):
-            x[i, nonneg_mask[i]] = lin[i]
-            x[i, neg_mask[i]] = emb[i]
+        x_tok = x[:,:-self.num_nums].long()
+        x_num = x[:,-self.num_nums:]
+        tok_emb = self.wte(-x_tok.squeeze(-1))
+        num_emb = self.encoding(x_num)
+        x_emb = torch.cat([tok_emb, num_emb], dim=1)
+        if self.positional:
+            x = x_emb
+        else:
+            pos = torch.arange(0, x.size(1), dtype=torch.long, device=device)
+            pos_emb = self.wpe(pos)
+            x = x_emb + pos_emb
         for layer in self.transformer_layers:
             x = layer(x, p=p)
         out = self.decoding(x)

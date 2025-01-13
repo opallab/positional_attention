@@ -12,7 +12,7 @@ from data import Dataset_NLP, DataLoader
 from utils import append_positional_encoding, identity_pe, get_pe
 from utils import get_nlp_loss as get_loss
 
-def run_experiment(target, data, device, model_savepath=None, run_id=0):
+def run_experiment(target, data, device, model_savepath=None, sample_ind=0, run_id=0):
     """Run experiment with given parameters and return final losses for standard and positional transformer
 
     Args:
@@ -20,7 +20,7 @@ def run_experiment(target, data, device, model_savepath=None, run_id=0):
         data (dict): dictionary containing parameters for the experiment
         device (torch.device): device to run the experiment on
     """
-    num_train_samples = data['num_train_samples']
+    num_train_samples = data['num_train_samples'][sample_ind]
     num_test_samples = data['num_test_samples']
     num_cats = data['num_cats']
     num_query_cats = data['num_query_cats'] if 'num_query_cats' in data else None
@@ -171,7 +171,6 @@ if __name__ == '__main__':
         json.dump(data, fp)
 
     model_savepath = args.savepath + '/models'
-    os.makedirs(model_savepath, exist_ok=True)
 
     print(f"Experiment: NLP - {args.task}")
     num_cats = data['num_cats']
@@ -181,28 +180,34 @@ if __name__ == '__main__':
     low_test = data['low_test']
     high_test = data['high_test']
 
-    num_train_samples = data['num_train_samples']
-    filename = f"/train_val_test_scale_nlp_samples{num_train_samples}"
-    filename_s = args.savepath + filename + "_standard.txt"
-    filename_p = args.savepath + filename + "_positional.txt"
-    os.makedirs(os.path.dirname(filename_s), exist_ok=True)
-    os.makedirs(os.path.dirname(filename_p), exist_ok=True)
+    if type(data['num_train_samples']) == int:
+        data['num_train_samples'] = [data['num_train_samples']]
 
-    print(f"Number of categories: {num_cats}, Number of categories in each query: {num_query_cats}")
-    print(f"Training samples: {num_train_samples}, Training range: [{low_train}, {high_train}]")
-    print(f"Testing samples: {data['num_test_samples']}, Testing range: [{low_test}, {high_test}]")
-    for run in range(data['runs']):
-        print(f"Run {run+1} / {data['runs']}:")
-        final_losses_s, final_losses_p = run_experiment(args.task, data, device, model_savepath=model_savepath, run_id=run+1)
+    for i in range(len(data['num_train_samples'])):
+        cur_model_savepath = model_savepath + f"/samples{data['num_train_samples'][i]}"
+        os.makedirs(cur_model_savepath, exist_ok=True)
+        num_train_samples = data['num_train_samples'][i]
+        filename = f"/train_val_test_scale_nlp_samples{num_train_samples}"
+        filename_s = args.savepath + filename + "_standard.txt"
+        filename_p = args.savepath + filename + "_positional.txt"
+        os.makedirs(os.path.dirname(filename_s), exist_ok=True)
+        os.makedirs(os.path.dirname(filename_p), exist_ok=True)
 
-        with open(filename_s, 'a') as f:
-            for loss in final_losses_s:
-                print(f"{loss:.10e}\t", end='', file=f)
-            print("", file=f)
+        print(f"Number of categories: {num_cats}, Number of categories in each query: {num_query_cats}")
+        print(f"Training samples: {num_train_samples}, Training range: [{low_train}, {high_train}]")
+        print(f"Testing samples: {data['num_test_samples']}, Testing range: {list(zip(low_test, high_test))}")
+        for run in range(data['runs']):
+            print(f"Run {run+1} / {data['runs']}:")
+            final_losses_s, final_losses_p = run_experiment(args.task, data, device, model_savepath=cur_model_savepath, sample_ind=i, run_id=run+1)
 
-        with open(filename_p, 'a') as f:
-            for loss in final_losses_p:
-                print(f"{loss:.10e}\t", end='', file=f)
-            print("", file=f)
+            with open(filename_s, 'a') as f:
+                for loss in final_losses_s:
+                    print(f"{loss:.10e}\t", end='', file=f)
+                print("", file=f)
 
-    print("===============================================")
+            with open(filename_p, 'a') as f:
+                for loss in final_losses_p:
+                    print(f"{loss:.10e}\t", end='', file=f)
+                print("", file=f)
+
+        print("===============================================")

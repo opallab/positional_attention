@@ -11,14 +11,15 @@ chars = sorted(list(set(all_text)))
 
 def encode(l: list[any]) -> list[int]:
 		"""Encode a list of strings and numbers into a tokenized list of integers."""
-		encoded = []
+		encoded_str = []
+		encoded_num =[]
 		stoi = {ch: (-(i+1)) for i, ch in enumerate(chars)}
 		for s in l:
 				if type(s) == str:
-						encoded += [stoi[c] for c in s]
+						encoded_str += [stoi[c] for c in s]
 				else:
-						encoded.append(s)
-		return encoded
+						encoded_num.append(s)
+		return encoded_str + encoded_num
 
 def generate_sample_prompt(categories: list[str], low: float, high: float, query_type: str, num_query_cats = None, train = False) -> dict:
 		"""Generate a sample for the expenses dataset.
