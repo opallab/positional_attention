@@ -6,6 +6,8 @@ This repository contains the code for the paper **Positional Attention: Out-of-D
 pip install -r requirements.txt
 ```
 
+### Numerical tasks
+
 There are five scripts available for running the experiments: 
 - The script `experiment_scale.py` generates the results for Figures 2 and 5 in the main paper, as well as for sections C.1 and C.2 in the Appendix.
 - The script `experiment_sample_or_size` generates the results for Figures 3 and 4 in the main paper, as well as for sections C.4 and C.5 in the Appendix.
@@ -19,8 +21,16 @@ To execute any of these python scripts, specify the task using `--task` followed
 python experiment_sample_or_size.py --params params/sample_params.json --task min --savepath ./experiment
 ```
 
+## Mixed-type input task
+To run the GPT2 fine-tuning for our mixed-type input task (Appendix D) simply run `python gpt2_[task].py` where `task` is one of `min`, `max` or  `multitask`. To run the code used to generate Figure 6. of the main paper run 
+```
+python experiment_nlp.py --savepath [savepath] --params params/params_nlp_scale.json --task [task]
+```
+where `[task]` is as before and `[savepath]` is the directory to save losses and models. 
+To run the code used to generate Figures 31-33 of Appendix D (sample complexity experiments) run 
+```
+python experiment_nlp_sample.py --savepath [savepath] --params params/params_nlp_sample.json --task [task]
+```
+where `[task]` and `[savepath]` are as before.
+
 In the `/results` directory, you will also find the output from all our experiments.
-
-
-
-
